@@ -105,7 +105,7 @@ class Histogram(object):
         self.outliers = outliers
         self._orig_bins = bins # original bins argument
         self._bin_no = bins if isinstance(bins,(float, int)) else 30 # numbers of bins
-        self._bin_edges = None # list wiht all bin edges
+        self._bin_edges = None # list with all bin edges
         self.density = density
         self.agg = agg
         self.rug = rug
@@ -116,6 +116,7 @@ class Histogram(object):
         self._x_bounds = x_bounds
         self._x_range = x_range
         self._values = values
+        
         # call data late, this updates the plot, but all variable need to be defined already.
         self.data = data
         self._orig_x_range = x_range if x_range else self.x_range
@@ -139,11 +140,22 @@ class Histogram(object):
 
     @property
     def x_range(self):
-        return self._x_range
+        #print("GET x_range property")
+        #print(self._x_range)
+        if len(self._x_range) == 2:
+            if np.isnan(self._x_range[0]) or np.isnan(self._x_range[1]):
+                x_range = [self.data.min(), self.data.max()]
+            else:
+                x_range = self._x_range
+        else:
+            x_range = [self.data.min(), self.data.max()]
+        return x_range
 
     @x_range.setter
-    def x_range(self, new_range):
-        self._x_range = new_range if new_range != None else self.limit
+    def x_range(self, new_range=None):
+        print("SET x_range property")
+        print(new_range)
+        self._x_range = new_range if new_range != None else [self.data.min(), self.data.max()]
         self._calc_histogram()
         self._update_x_bounds()
 
@@ -159,10 +171,18 @@ class Histogram(object):
 
     @property
     def limit(self):
-        return self._limit
+        limit = self._limit
+        if self._limit: 
+            if len(self._limit) == 2:
+                if np.isnan(self._limit[0]) or np.isnan(self._limit[1]):
+                    limit = [self.data.min(), self.data.max()]
+        else:
+            limit = [self.data.min(), self.data.max()]
+        return limit
 
     @limit.setter
     def limit(self, limit):
+        limit = limit if limit else [self.data.min(), self.data.max()]
         self._limit = limit
         if hasattr(self,'_lower_limit_box'):
             self._lower_limit_box.right = self.limit[0]
@@ -191,9 +211,9 @@ class Histogram(object):
         self._data = raw_data[self._values].dropna()
 
         if self._limit and not self._x_range:
-            add_range = (self._limit[1] - self._limit[0])/4
-            self._x_range = [self._limit[0] - add_range,
-                    self._limit[1] + add_range]
+            add_range = (self.limit[1] - self.limit[0])/4
+            self._x_range = [self.limit[0] - add_range,
+                    self.limit[1] + add_range]
         else:
             self._x_range = self._x_range if self._x_range != None \
                     else [self._data.min(), self._data.max()]
@@ -220,12 +240,12 @@ class Histogram(object):
         self.data = self._orig_data
 
     def _update_x_bounds(self, new_bounds=None):
-        lower_bound = self.data.min()-self.bin_width*self.bins/4
+        lower_bound = self.data.min()-self.bin_width*self.bins/2.
         lower_bound = lower_bound if lower_bound < self.x_range[0] \
-                else self.x_range[0]-self.bin_width*self.bins/4
-        upper_bound = self.data.max()+self.bin_width*self.bins/4
+                else self.x_range[0]-self.bin_width*self.bins/2.
+        upper_bound = self.data.max()+self.bin_width*self.bins/2.
         upper_bound = upper_bound if upper_bound > self.x_range[1] \
-                else self.x_range[1]+self.bin_width*self.bins/4
+                else self.x_range[1]+self.bin_width*self.bins/2.
         self._x_bounds = new_bounds if new_bounds else (lower_bound, upper_bound)
         # self.figure.x_range = bkRange1d(start=self.x_range[0]-self.bin_width,
         #         end=self.x_range[1]+self.bin_width,
@@ -235,7 +255,7 @@ class Histogram(object):
         self.figure.x_range.bounds=self._x_bounds
 
 
-    def update_view(self, region='x_range', add=0, add_bins=0):
+    def update_view(self, region='view', add=0, add_bins=0):
         """changes range accordingly to the visible histogram
 
         region: - 'x_range' : update to current x_range
@@ -244,9 +264,12 @@ class Histogram(object):
                 - 'reset' : reset to original x_range
                 """
         print("Update view to {}".format(region))
-        if region == "x_range":
+        if region == "view":
             start = self.figure.x_range.start
             end = self.figure.x_range.end
+        if region == "x_range":
+            start = self.x_range[0]
+            end = self.x_range[1]
         if region == "data":
             start = self.data.min()
             end = self.data.max()
@@ -266,6 +289,8 @@ class Histogram(object):
         self.x_range = [start + bin_width - add_range, end - bin_width + add_range]
 
     def _calc_histogram(self):
+        print("CALCULATE HISTOGRAM: range")
+        print (self.x_range)
         hist, edges = np.histogram(self.data, density=self.density,
                 bins=self._orig_bins, range= self.x_range)
         self._bin_edges= edges
@@ -276,8 +301,10 @@ class Histogram(object):
         lower = df_lower.count()
         upper = df_upper.count()
         out_data['count'] = [lower, upper]
-        out_data['left'] = [df_lower.min() , edges[-1]]
-        out_data['right'] = [edges[0], df_upper.max()]
+        left = df_lower.min() if df_lower.min() < edges[0] - self.bin_width else edges[0] - self.bin_width
+        out_data['left'] = [left , edges[-1]]
+        right = df_lower.max() if df_lower.max() > edges[-1] + self.bin_width else edges[-1] + self.bin_width
+        out_data['right'] = [edges[0], right]
         out_data['width'] = out_data['right'] - out_data['left']
         out_data['mid'] = out_data['left'] + out_data['width']/2
         self.source['histo_out'].data = bkColumnDataSource.from_df(out_data)
@@ -299,7 +326,7 @@ class Histogram(object):
         self.figure.vbar(source=self.source['histo'],x='mid', bottom=0, \
                 top='count', width='width', **self.kw_bars)
         # add rugs and detail histogram
-        if self.rug or self.details:
+        if self.rug or self.details and len(self.data) > 0:
             hist_all, edges_all = np.histogram(self.data, bins=len(self.data))
             if self.details:
                 self.kw_details.setdefault('fill_alpha',0.2)
