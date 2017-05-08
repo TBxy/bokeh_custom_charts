@@ -11,24 +11,38 @@ from bokeh.io import curdoc
 
 doc = curdoc()
 
-hist = bke.charts.Histogram(df, values='mpg', title="Auto MPG Histogram", plot_width=400, doc=doc,
-         x_range=[15,40])
-hist2 = bke.charts.Histogram(df, values='displ', label='cyl', color='cyl', legend='top_right', doc=doc,
-        title="MPG Histogram by Cylinder Count", plot_width=400, limit=[200,300],
-        details=True, kw_rug={'rug_scale':0.008, 'fill_color': 'brown'})
-hist3 = bke.charts.Histogram(df, values='weight', title="Auto MPG Histogram", plot_width=400, doc=doc, auto_update=False)
+hist = bke.charts.Histogram(df, values='mpg',
+        title="Auto MPG Histogram", plot_width=400,
+        doc=doc, x_range=[15,40])
+hist2 = bke.charts.Histogram(df, values='displ', label='cyl',
+        color='cyl', legend='top_right', doc=doc,
+        title="MPG Histogram by Cylinder Count", plot_width=400,
+        limit=[200,300], details=True,
+        kw_rug={'rug_scale':0.008, 'fill_color': 'brown'})
+hist3 = bke.charts.Histogram(df, values='displ', show_limits=True,
+        title="Auto MPG Histogram", plot_width=400,
+        doc=doc, auto_update=True)
+hist4 = bke.charts.Histogram(df, values='weight',
+        title="Auto MPG Histogram", plot_width=400,
+        doc=doc, auto_update=False)
 
 
 
-hist2.limit = [250,450]
-hist2.update_view('reset',2)
+hist2.limit = None
+hist2.x_range = [200,500]
+#hist2.update_view('reset',2)
 
 #hist3.bins = 4
 hist3.x_range = [2000,4000]
+hist3.bins = 5
+hist3.values = 'weight'
+hist3.x_range = [2300,3985]
+hist3.bins = 50
+#hist3.x_range = [2000,4000]
 #hist3.figure.x_range.start = 10
 #hist3.update_view()
 
-l = column(row(hist(), hist2()),row(hist3()))
+l = column(row(hist.menu(orientation='v'), hist(), hist2()),row(hist3.menu(orientation='v'), hist3(),hist4()))
 doc.add_root(l)
 doc.title = "Histograms"
 

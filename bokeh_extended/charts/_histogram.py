@@ -13,6 +13,10 @@ from bokeh.plotting import figure as bkfigure
 #from bokeh.models.ranges import Range1d as bkRange1d
 from bokeh.models.sources import ColumnDataSource as bkColumnDataSource
 from bokeh.models import BoxAnnotation as bkBoxAnnotation
+from bokeh.models import widgets as bkw
+from bokeh.layouts import row as bkrow
+from bokeh.layouts import column as bkcolumn
+from bokeh.layouts import widgetbox as bkwidgetbox
 #from ..builder import Builder, create_and_build
 #from ...models import FactorRange, Range1d
 from ._rugplot import Rugplot
@@ -33,6 +37,7 @@ class Histogram(object):
                   limit=None, x_range=None, outliers=True, doc=None,
                   density=False, show_limits=None, orientation='vertical',
                   rug=True, details=False, x_bounds=None, auto_update=True,
+                  init_menu=True, add_menu=True,
                   kw_figure={}, kw_bars={}, kw_bars_outliers={},
                   kw_rug={}, kw_details={},**kw):
         """ Create a histogram chart with one or more histograms.
@@ -89,17 +94,20 @@ class Histogram(object):
         else:
             self.figure = bkfigure(**kw_figure)
         #self.hist = bkHistogram(data, **kw)
+        if init_menu or add_menu:
+            self._init_widgets()
+        self.add_menu = add_menu
+
         self.kw_bars = kw_bars
-        self.kw_bars.setdefault('fill_color', "#036564")
-        self.kw_bars.setdefault('line_color', "#033649")
+        self.kw_bars.setdefault('fill_color', "#fdb863")
+        self.kw_bars.setdefault('line_color', "#b88445")
         self.kw_bars_outliers = kw_bars_outliers
-        self.kw_bars.setdefault('fill_color', "#FF0000")
-        self.kw_bars.setdefault('line_color', "#222222")
+        self.kw_bars_outliers.setdefault('fill_color', "#b2abd2")
+        self.kw_bars_outliers.setdefault('line_color', "#6b6587")
 
         self.source = {}
         self.source['histo_out'] = bkColumnDataSource()
         self.source['histo'] = bkColumnDataSource()
-
 
         self.show_limits = show_limits if show_limits != None else True if limit else False
         self.outliers = outliers
@@ -116,7 +124,7 @@ class Histogram(object):
         self._x_bounds = x_bounds
         self._x_range = x_range
         self._values = values
-        
+
         # call data late, this updates the plot, but all variable need to be defined already.
         self.data = data
         self._orig_x_range = x_range if x_range else self.x_range
@@ -125,6 +133,13 @@ class Histogram(object):
         self.doc = doc
         self.figure.x_range.on_change('end',self._view_changed_event)
         self.figure.x_range.on_change('start',self._view_changed_event)
+        if hasattr(self,'_widget_x_range1'):
+            self._widget_x_range1.value = "{:G}".format(self.x_range[0])
+        if hasattr(self,'_widget_x_range2'):
+            self._widget_x_range2.value = "{:G}".format(self.x_range[1])
+        #self._update_x_bounds()
+        #self._update_view_debounced()
+        self.update_view()
 
 
 
@@ -143,7 +158,7 @@ class Histogram(object):
         #print("GET x_range property")
         #print(self._x_range)
         if len(self._x_range) == 2:
-            if np.isnan(self._x_range[0]) or np.isnan(self._x_range[1]):
+            if self._x_range[0] == np.nan or self._x_range[1] == np.nan:
                 x_range = [self.data.min(), self.data.max()]
             else:
                 x_range = self._x_range
@@ -156,6 +171,10 @@ class Histogram(object):
         print("SET x_range property")
         print(new_range)
         self._x_range = new_range if new_range != None else [self.data.min(), self.data.max()]
+        if hasattr(self,'_widget_x_range1'):
+            self._widget_x_range1.value = "{:G}".format(self._x_range[0])
+        if hasattr(self,'_widget_x_range2'):
+            self._widget_x_range2.value = "{:G}".format(self._x_range[1])
         self._calc_histogram()
         self._update_x_bounds()
 
@@ -167,14 +186,18 @@ class Histogram(object):
     @bins.setter
     def bins(self, bins):
         self._orig_bins = bins
+        if hasattr(self,'_widget_bins'):
+            self._widget_bins.value = "{:G}".format(bins)
         self._calc_histogram()
+        self._update_x_bounds()
 
     @property
     def limit(self):
         limit = self._limit
-        if self._limit: 
+        if self._limit:
             if len(self._limit) == 2:
-                if np.isnan(self._limit[0]) or np.isnan(self._limit[1]):
+                #if np.isnan(self._limit[0]) or np.isnan(self._limit[1]):
+                if self._limit[0] == np.nan or self._limit[1] == np.nan:
                     limit = [self.data.min(), self.data.max()]
         else:
             limit = [self.data.min(), self.data.max()]
@@ -191,6 +214,10 @@ class Histogram(object):
         if hasattr(self,'_mid_limit_box'):
             self._mid_limit_box.left = self.limit[1]
             self._mid_limit_box.right = self.limit[0]
+        if hasattr(self,'_widget_limit1'):
+            self._widget_limit1.value = "{:G}".format(limit[0])
+        if hasattr(self,'_widget_limit2'):
+            self._widget_limit2.value = "{:G}".format(limit[1])
 
     @property
     def data(self):
@@ -219,6 +246,7 @@ class Histogram(object):
                     else [self._data.min(), self._data.max()]
         self._limit = self._limit if self._limit != None else [self._data.min(), self._data.max()]
         self._calc_histogram()
+        self._update_x_bounds()
 
     def _view_changed_event(self, value, new, old):
         if self.auto_update and self.doc:
@@ -238,6 +266,10 @@ class Histogram(object):
     def values(self, values):
         self._values = values
         self.data = self._orig_data
+        if self.rug:
+            max_height = self.source['histo'].data['count'].max()
+            self.rug_plot.remove()
+            self.rug_plot = Rugplot(self.data, self.figure, max_height=max_height, **self.kw_rug)
 
     def _update_x_bounds(self, new_bounds=None):
         lower_bound = self.data.min()-self.bin_width*self.bins/2.
@@ -303,7 +335,7 @@ class Histogram(object):
         out_data['count'] = [lower, upper]
         left = df_lower.min() if df_lower.min() < edges[0] - self.bin_width else edges[0] - self.bin_width
         out_data['left'] = [left , edges[-1]]
-        right = df_lower.max() if df_lower.max() > edges[-1] + self.bin_width else edges[-1] + self.bin_width
+        right = df_upper.max() if df_upper.max() > edges[-1] + self.bin_width else edges[-1] + self.bin_width
         out_data['right'] = [edges[0], right]
         out_data['width'] = out_data['right'] - out_data['left']
         out_data['mid'] = out_data['left'] + out_data['width']/2
@@ -362,14 +394,61 @@ class Histogram(object):
             self.figure.add_layout(self._upper_limit_box)
             self.figure.add_layout(self._mid_limit_box)
 
-
         self._update_x_bounds()
         return self.figure
 
+    def _init_widgets(self):
+        self._widget_bins = bkw.TextInput(value="auto", title="Bins:")
+        self._widget_bins.on_change('value', self._widget_new_bin)
+        self._widget_x_range1 = bkw.TextInput(value="", title="Start:")
+        self._widget_x_range1.on_change('value', self._widget_new_x_range1)
+        self._widget_x_range2 = bkw.TextInput(value="", title="End:")
+        self._widget_x_range2.on_change('value', self._widget_new_x_range2)
+        self._widget_limit1 = bkw.TextInput(value="", title="Lower Limit:")
+        self._widget_limit1.on_change('value', self._widget_new_limit1)
+        self._widget_limit2 = bkw.TextInput(value="", title="Upper Limit:")
+        self._widget_limit2.on_change('value', self._widget_new_limit2)
+
+    def menu(self, orientation='horizontal', components=('bins','x_range','limit','auto_update','update')):
+        w = []
+        for c in components:
+            if c == "bins":
+                w.append(self._widget_bins)
+            if c == "x_range":
+                w.append(self._widget_x_range1)
+                w.append(self._widget_x_range2)
+            if c == "limit":
+                w.append(self._widget_limit1)
+                w.append(self._widget_limit2)
+        if orientation in ('horizontal', 'h','row'):
+            return bkrow(children=w)
+        else:
+            return bkwidgetbox(w, width=150, responsive=True)
+
+    def _widget_new_bin(self, attr, old, new):
+        try:
+            self.bins = int(new)
+        except:
+            self.bins = new
+    def _widget_new_x_range1(self, attr, old, new):
+        self.x_range = [float(new), self.x_range[1]]
+    def _widget_new_x_range2(self, attr, old, new):
+        self.x_range = [self.x_range[0], float(new)]
+    def _widget_new_limit1(self, attr, old, new):
+        self.limit = [float(new), self.limit[1]]
+    def _widget_new_limit2(self, attr, old, new):
+        self.limit = [self.limit[0], float(new)]
+
+
+
+
+
 
     def __call__(self):
-        return self.hist
+        return self.plot()
     def plot(self):
+        #if self.add_menu:
+            #return bkrow(self.menu(), self.hist)
         return self.hist
 
 

@@ -64,7 +64,7 @@ class Rugplot(object):
             del kw['bottom']
             del kw['top']
             del kw['width']
-            self.rug = self.figure.hbar(y=self.data, name='rug', **kw)
+            self.rug = self.figure.hbar(y=self.data, **kw)
         else:
             self.rug = self.figure.vbar(x=self.data, **kw)
         self.kw = kw
