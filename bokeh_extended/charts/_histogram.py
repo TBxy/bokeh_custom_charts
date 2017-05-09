@@ -121,6 +121,7 @@ class Histogram(object):
         self.details = details
         self.kw_details = kw_details
         self._limit = limit
+        self.limit = limit
         self._x_bounds = x_bounds
         self._x_range = x_range
         self._values = values
@@ -158,10 +159,11 @@ class Histogram(object):
         #print("GET x_range property")
         #print(self._x_range)
         if len(self._x_range) == 2:
-            if self._x_range[0] == np.nan or self._x_range[1] == np.nan:
-                x_range = [self.data.min(), self.data.max()]
-            else:
-                x_range = self._x_range
+#            if self._x_range[0] == np.nan or self._x_range[1] == np.nan:
+#                x_range = [self.data.min(), self.data.max()]
+#            else:
+#                x_range = self._x_range
+            x_range = self._x_range
         else:
             x_range = [self.data.min(), self.data.max()]
         return x_range
@@ -195,10 +197,11 @@ class Histogram(object):
     def limit(self):
         limit = self._limit
         if self._limit:
-            if len(self._limit) == 2:
-                #if np.isnan(self._limit[0]) or np.isnan(self._limit[1]):
-                if self._limit[0] == np.nan or self._limit[1] == np.nan:
-                    limit = [self.data.min(), self.data.max()]
+            pass
+#            if len(self._limit) == 2:
+#                #if np.isnan(self._limit[0]) or np.isnan(self._limit[1]):
+#                if self._limit[0] == np.nan or self._limit[1] == np.nan:
+#                    limit = [self.data.min(), self.data.max()]
         else:
             limit = [self.data.min(), self.data.max()]
         return limit
@@ -409,7 +412,7 @@ class Histogram(object):
         self._widget_limit2 = bkw.TextInput(value="", title="Upper Limit:")
         self._widget_limit2.on_change('value', self._widget_new_limit2)
 
-    def menu(self, orientation='horizontal', components=('bins','x_range','limit','auto_update','update')):
+    def menu(self, orientation='vertical', components=('bins','x_range','limit','auto_update','update')):
         w = []
         for c in components:
             if c == "bins":
