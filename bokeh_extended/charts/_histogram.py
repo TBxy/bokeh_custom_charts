@@ -22,6 +22,7 @@ from bokeh.layouts import widgetbox as bkwidgetbox
 from ._rugplot import Rugplot
 from bokeh.io import curdoc
 from ..util import debounce
+from functools import partial
 
 
 # -----------------------------------------------------------------------------
@@ -121,7 +122,6 @@ class Histogram(object):
         self.details = details
         self.kw_details = kw_details
         self._limit = limit
-        self.limit = limit
         self._x_bounds = x_bounds
         self._x_range = x_range
         self._values = values
@@ -129,18 +129,30 @@ class Histogram(object):
         # call data late, this updates the plot, but all variable need to be defined already.
         self.data = data
         self._orig_x_range = x_range if x_range else self.x_range
-        self.hist = self._create_histo()
+        #self.hist = self._create_histo()
         self.auto_update = auto_update
         self.doc = doc
-        self.figure.x_range.on_change('end',self._view_changed_event)
-        self.figure.x_range.on_change('start',self._view_changed_event)
+        self.figure.x_range.on_change('end',self._view_end_changed_event)
+        self.figure.x_range.on_change('start',self._view_start_changed_event)
+        self.hist = self._create_histo()
+        self.limit = limit
         if hasattr(self,'_widget_x_range1'):
             self._widget_x_range1.value = "{:G}".format(self.x_range[0])
         if hasattr(self,'_widget_x_range2'):
             self._widget_x_range2.value = "{:G}".format(self.x_range[1])
         #self._update_x_bounds()
         #self._update_view_debounced()
-        self.update_view()
+        #self.update_view('x_range')
+        #self.update_view()
+        #self.x_range = [self.x_range[0]+1, self.x_range[1]+1]
+        #self.x_range = [self.x_range[0]-1, self.x_range[1]-1]
+        #self.figure.x_range.end = self.x_range[1]+1
+        #self.figure.x_range.start = self.x_range[0]+1
+        #self.figure.x_range.start = self.x_range[0]-1
+        #self.figure.x_range.end = self.x_range[1]-1
+        #for i in range(0,5):
+            #self._view_start_changed_event(None, self.x_range[0], None)
+            #self._view_end_changed_event(None, self.x_range[1], None)
 
 
 
@@ -156,6 +168,7 @@ class Histogram(object):
 
     @property
     def x_range(self):
+        #print("[GET x_range] start")
         #print("GET x_range property")
         #print(self._x_range)
         if len(self._x_range) == 2:
@@ -163,27 +176,39 @@ class Histogram(object):
 #                x_range = [self.data.min(), self.data.max()]
 #            else:
 #                x_range = self._x_range
+            #print("[GET x_range] use self._x_range")
             x_range = self._x_range
         else:
             x_range = [self.data.min(), self.data.max()]
+            print("[GET x_range] use min/max")
+        #print(x_range)
+        #print("[GET x_range] end")
         return x_range
 
     @x_range.setter
     def x_range(self, new_range=None):
-        print("SET x_range property")
-        print(new_range)
+        print("[SET x_range] start, new_range: {}".format(new_range))
+        #print(new_range)
         self._x_range = new_range if new_range != None else [self.data.min(), self.data.max()]
-        if hasattr(self,'_widget_x_range1'):
-            self._widget_x_range1.value = "{:G}".format(self._x_range[0])
-        if hasattr(self,'_widget_x_range2'):
-            self._widget_x_range2.value = "{:G}".format(self._x_range[1])
+        #print("[SET x_range] self._x_range:")
+        #print(self._x_range)
         self._calc_histogram()
         self._update_x_bounds()
+        if hasattr(self,'_widget_x_range1'):
+            print("              update x range1 widget to {:G}".format(self._x_range[0]))
+            self._widget_x_range1.value = "{:G}".format(self._x_range[0])
+        if hasattr(self,'_widget_x_range2'):
+            print("              update x range2 widget to {:G}".format(self._x_range[1]))
+            self._widget_x_range2.value = "{:G}".format(self._x_range[1])
+        print("[SET x_range] end")
 
 
     @property
     def bins(self):
-        return self._bin_no
+        if self._bin_no:
+            return self._bin_no
+        else:
+            return 1
 
     @bins.setter
     def bins(self, bins):
@@ -208,7 +233,12 @@ class Histogram(object):
 
     @limit.setter
     def limit(self, limit):
-        limit = limit if limit else [self.data.min(), self.data.max()]
+        print("LIMIT")
+        print(limit)
+        limit = limit if limit else [self.data.min(), self.data.max()] \
+                    if len(self.data)>1 else [0,0]
+        print(limit)
+        print(self.data)
         self._limit = limit
         if hasattr(self,'_lower_limit_box'):
             self._lower_limit_box.right = self.limit[0]
@@ -251,19 +281,25 @@ class Histogram(object):
         self._calc_histogram()
         self._update_x_bounds()
 
-    def _view_changed_event(self, value, new, old):
+    def _view_start_changed_event(self, value, old, new):
         if self.auto_update and self.doc:
-            self._update_view_debounced()
+            print("[VIEW CHANGED start] old/new: {}/{}".format(old,new))
+            self._update_view_debounced(start=new)
+    def _view_end_changed_event(self, value, old, new):
+        if self.auto_update and self.doc:
+            print("[VIEW CHANGED end] old/new: {}/{}".format(old,new))
+            self._update_view_debounced(end=new)
 
-    @debounce(0.1)
-    def _update_view_debounced(self):
+    @debounce(0.08)
+    def _update_view_debounced(self,start=None,end=None):
         #print("UPDATE view")
-        self.doc.add_next_tick_callback(self.update_view)
+        print("[UPDATE VIEW DEBOUNCED] start")
+        self.doc.add_next_tick_callback(partial(self.update_view,start=start,end=end))
 
 
     @property
     def values(self):
-        return getattr(self,'_values')
+        return getattr(self,'_values','x')
 
     @values.setter
     def values(self, values):
@@ -275,6 +311,7 @@ class Histogram(object):
             self.rug_plot = Rugplot(self.data, self.figure, max_height=max_height, **self.kw_rug)
 
     def _update_x_bounds(self, new_bounds=None):
+        print("[UPDATE x_bounds] start")
         lower_bound = self.data.min()-self.bin_width*self.bins/2.
         lower_bound = lower_bound if lower_bound < self.x_range[0] \
                 else self.x_range[0]-self.bin_width*self.bins/2.
@@ -285,12 +322,17 @@ class Histogram(object):
         # self.figure.x_range = bkRange1d(start=self.x_range[0]-self.bin_width,
         #         end=self.x_range[1]+self.bin_width,
         #         bounds = self._x_bounds)
+        self.figure.x_range.bounds=self._x_bounds
         self.figure.x_range.start=self.x_range[0]-self.bin_width
         self.figure.x_range.end=self.x_range[1]+self.bin_width
-        self.figure.x_range.bounds=self._x_bounds
+        print("[UPDATE x_bounds] figure.x_range start/ end : {}/{}".format(self.x_range[0]-self.bin_width,self.x_range[1]+self.bin_width))
+        print("[UPDATE x_bounds] figure.x_range:")
+        print(self.figure.x_range.start)
+        print(self.figure.x_range.end)
+        print("[UPDATE x_bounds] end")
 
 
-    def update_view(self, region='view', add=0, add_bins=0):
+    def update_view(self, region='view', add=0, add_bins=0,start=None,end=None):
         """changes range accordingly to the visible histogram
 
         region: - 'x_range' : update to current x_range
@@ -298,33 +340,43 @@ class Histogram(object):
                 - 'limit' : fit to limits
                 - 'reset' : reset to original x_range
                 """
-        print("Update view to {}".format(region))
+        print("[UPDATE VIEW] start, to view '{}'".format(region))
+        print("[UPDATE VIEW] x_range: {}  start: {}  end: {} ".format(self.x_range,start,end))
+        start_arg = start
+        end_arg = end
         if region == "view":
             start = self.figure.x_range.start
             end = self.figure.x_range.end
-        if region == "x_range":
+        elif region == "x_range":
             start = self.x_range[0]
             end = self.x_range[1]
-        if region == "data":
+            bin_width = (end - start) / float(self.bins + 2)
+            start -= bin_width
+            end += bin_width
+        elif region == "data":
             start = self.data.min()
             end = self.data.max()
-        if region == "limit":
+        elif region == "limit":
             start = self.limit[0]
             end = self.limit[1]
-        if region == "reset":
+        elif region == "reset":
             start = self._orig_x_range[0]
             end = self._orig_x_range[1]
         else:
             start = self.figure.x_range.start
             end = self.figure.x_range.end
+        start = start_arg if start_arg != None else start
+        end = end_arg if end_arg != None else end
         bin_width = (end - start) / float(self.bins + 2)
         add_range = 0 if add == 0 else (end - start)/add
         add_range += 0 if add_bins == 0 else add_bins * bin_width
 
+        print("[UPDATE VIEW] start/end: {}/{}".format(start, end))
         self.x_range = [start + bin_width - add_range, end - bin_width + add_range]
+        print("[UPDATE VIEW] end")
 
     def _calc_histogram(self):
-        print("CALCULATE HISTOGRAM: range")
+        print("[CALC HISTO] start, x_range:")
         print (self.x_range)
         hist, edges = np.histogram(self.data, density=self.density,
                 bins=self._orig_bins, range= self.x_range)
@@ -351,6 +403,7 @@ class Histogram(object):
         data['width'] = data['right'] - data['left']
         data['mid'] = data['left'] + data['width']/2
         self.source['histo'].data = bkColumnDataSource.from_df(data)
+        print("[CALC HISTO] end")
 
 
     def _create_histo(self):
@@ -426,7 +479,7 @@ class Histogram(object):
         if orientation in ('horizontal', 'h','row'):
             return bkrow(children=w)
         else:
-            return bkwidgetbox(w, width=150, responsive=True)
+            return bkwidgetbox(w, width=250, responsive=True)
 
     def _widget_new_bin(self, attr, old, new):
         try:
@@ -434,9 +487,17 @@ class Histogram(object):
         except:
             self.bins = new
     def _widget_new_x_range1(self, attr, old, new):
+        print("[WIDGET] new x range 1")
         self.x_range = [float(new), self.x_range[1]]
+        print('x_range is now:')
+        print(self.x_range)
+        print("[WIDGET] end")
     def _widget_new_x_range2(self, attr, old, new):
+        print("[WIDGET] new x range 2")
         self.x_range = [self.x_range[0], float(new)]
+        print('x_range is now:')
+        print(self.x_range)
+        print("[WIDGET] end")
     def _widget_new_limit1(self, attr, old, new):
         self.limit = [float(new), self.limit[1]]
     def _widget_new_limit2(self, attr, old, new):
