@@ -17,8 +17,9 @@ hist = bke.charts.Histogram(df, values='mpg',
 hist2 = bke.charts.Histogram(df, values='displ', label='cyl',
         color='cyl', legend='top_right', doc=doc,
         title="MPG Histogram by Cylinder Count", plot_width=400,
-        limit=[200,300], details=True,
-        kw_rug={'rug_scale':0.008, 'fill_color': 'brown'})
+        limit=[200,300], details=False,
+        kw_rug={'rug_scale':0.2, 'line_color': 'brown',
+            'mirrored':False,'histo':False})
 hist3 = bke.charts.Histogram(df, values='displ', show_limits=True,
         title="Auto MPG Histogram", plot_width=400,
         doc=doc, auto_update=True)

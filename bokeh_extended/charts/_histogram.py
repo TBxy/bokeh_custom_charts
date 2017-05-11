@@ -308,7 +308,7 @@ class Histogram(object):
         if self.rug:
             max_height = self.source['histo'].data['count'].max()
             self.rug_plot.remove()
-            self.rug_plot = Rugplot(self.data, self.figure, max_height=max_height, **self.kw_rug)
+            self.rug_plot = Rugplot(values=self.data, figure=self.figure, max_height=max_height, **self.kw_rug)
 
     def _update_x_bounds(self, new_bounds=None):
         print("[UPDATE x_bounds] start")
@@ -429,7 +429,7 @@ class Histogram(object):
                         right=edges_all[1:], **self.kw_details)
             if self.rug:
                 max_height = self.source['histo'].data['count'].max()
-                self.rug_plot = Rugplot(self.data, self.figure, max_height=max_height, **self.kw_rug)
+                self.rug_plot = Rugplot(values=self.data, figure=self.figure, max_height=max_height, **self.kw_rug)
         if self.show_limits:
             self.kw_outer_limit_box = {}
             self.kw_outer_limit_box.setdefault('fill_alpha',0.1)
