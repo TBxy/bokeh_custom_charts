@@ -35,13 +35,17 @@ class BoxPlot(object):
     """This allows to draw boxplots.
     """
 
-    def __init__(self,data, show_limits=None, limit=None, show_table=True, **kw):
+    def __init__(self,data, show_limits=None, limit=None, show_table=False, **kw):
         """ Create boxplot        """
+        print("[BOXPLOT] create")
+        print("[BOXPLOT] data")
 
         kw.setdefault('data',data)
 
         data = pd.DataFrame(data)
+        print(data)
         self.figure = bkBoxPlot(**kw)
+        #self.figure.legend = False # does not work
         self._limit = limit
         self._values = kw.get('values','x')
         self.data = data[self._values]
@@ -71,6 +75,8 @@ class BoxPlot(object):
         if show_table:
             self.stat = pd.DataFrame
             self.stat = data.groupby(kw.get('label'))[self._values].describe() #.transpose()
+            print ("STATISTICS 1")
+            print (self.stat)
             #self.stat = self.stat.to_dict()
             self.stat[kw.get('label')] = self.stat.index
             self.stat['median'] = self.stat['50%']
@@ -102,7 +108,8 @@ class BoxPlot(object):
                 self.figure.add_layout(self.stat_labels)
                 self.figure.add_layout(stat_title)
             stat_source.data = bkColumnDataSource.from_df(self.stat)
-            #print (self.stat)
+            print ("STATISTICS 2")
+            print (self.stat)
 
 
 
