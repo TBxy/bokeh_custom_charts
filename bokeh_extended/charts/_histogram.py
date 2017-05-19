@@ -172,14 +172,21 @@ class Histogram(object):
         #print("GET x_range property")
         #print(self._x_range)
         if len(self._x_range) == 2:
-#            if self._x_range[0] == np.nan or self._x_range[1] == np.nan:
-#                x_range = [self.data.min(), self.data.max()]
-#            else:
-#                x_range = self._x_range
+            if self._x_range[0] == np.nan or self._x_range[1] == np.nan:
+                try:
+                    x_range = [self.data.min(), self.data.max()]
+                except:
+                    x_range = [0, 1]
+            else:
+                x_range = self._x_range
             #print("[GET x_range] use self._x_range")
-            x_range = self._x_range
+            #x_range = self._x_range
         else:
-            x_range = [self.data.min(), self.data.max()]
+            try:
+                x_range = [self.data.min(), self.data.max()]
+            except:
+                x_range = [0, 1]
+            #x_range = [self.data.min(), self.data.max()]
             print("[GET x_range] use min/max")
         #print(x_range)
         #print("[GET x_range] end")
